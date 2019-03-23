@@ -1,0 +1,159 @@
+<html>
+<head>
+<script type = "text/javascript" src="chart_data.json"></script>
+<script>
+
+var y0, xRLim, xLLim, upd; 
+// y0 - data, xR(L)Lim - limitation of x axis on the right/left, upd = which side will be updated
+var xF, xFactor
+
+function makeCanvas(id, width, height) {
+var canvas = document.createElement("canvas");
+canvas.id = id;
+canvas.width = width;
+canvas.height = height;
+return canvas;  
+}
+
+
+function readData(left=0,right=0){
+    let r, l;
+    var j = JSON.parse(data)
+    var x1 = j[0].columns[0]
+    var y0 = j[0].columns[1]
+    if (right) r = Math.round(right/xF)
+    else r = y0.length
+    if (left) l = Math.round(left/xF) 
+    else l = 0
+    y0 = y0.slice(l,r)
+    console.log(l,r,y0)
+    return y0
+}
+
+
+function max(data) {
+    var m = -65565
+    for (var i=1; i<=data.length; i++) {
+        if (m<data[i]) m = data[i]
+    }
+    return m
+}
+
+
+function chart(canvas, data, xSize, yS) {
+    if (typeof canvas == "string") canvas = document.getElementById(canvas);
+    var g = canvas.getContext("2d");
+    let ySize = 4*yS/5
+    // draw axis
+    g.clearRect(0,0,xSize,ySize)
+    g.beginPath();
+    g.moveTo(20,5);
+    g.lineTo(20,ySize-20);
+    g.lineTo(xSize-5,ySize-20);
+    g.stroke();
+    // auto scalling
+    xFactor = Math.round((xSize-25)/(data.length))
+    yFactor = (ySize-25)/max(data)
+    //plot line(s)
+    g.lineWidth = 2;
+    g.strokeStyle = "#3DC23F";
+    g.beginPath();
+    g.moveTo(20, ySize-data[1]*yFactor)
+    for(var i = 2; i < data.length; i++) {
+        g.lineTo((i-1)*xFactor+20, ySize-data[i]*yFactor-25)
+        }
+    g.stroke();
+    }
+
+
+function miniChart(canvas,data,xSize,yS) {
+    if (typeof canvas == "string") canvas = document.getElementById(canvas);
+    var g = canvas.getContext("2d");
+    let ySize = yS/5, yOff = yS*4/5
+    //clear rect
+    g.clearRect(20,yOff,xSize-5,yS-20)
+    // draw axis
+    g.lineWidth=1;
+    g.strokeStyle='black';
+    g.beginPath();
+    g.moveTo(20,yOff);
+    g.lineTo(20,yS-20);
+    g.lineTo(xSize-5,yS-20);
+    g.stroke();
+    // auto scalling
+    xF = Math.round((xSize-25)/(data.length))
+    let yF = (ySize-25)/max(data)
+    //plot line(s)
+    g.lineWidth = 2;
+    g.strokeStyle = "#3DC23F";
+    g.beginPath();
+    g.moveTo(20, yS-data[1]*yF-25)
+    for(var i = 2; i < data.length; i++) {
+        g.lineTo((i-1)*xF+20, yS-data[i]*yF-25)
+        }
+    g.stroke(); 
+}
+
+
+function init() {
+    var ySize = 400, xSize = 600;
+    var canvas = makeCanvas("canvas", xSize, ySize);
+    y0 = readData();
+    document.body.appendChild(canvas);
+    chart("canvas", y0, xSize, ySize);
+    miniChart("canvas", y0, xSize, ySize);
+    addListener(xSize,ySize,data);
+    }
+
+
+function addListener(xSize,yS,data){
+    var canvas = document.getElementById('canvas') 
+    var g = canvas.getContext("2d");   
+    canvas.addEventListener('click',event => {
+        let bound = canvas.getBoundingClientRect();
+        let x = event.clientX - bound.left - canvas.clientLeft;
+        let y = event.clientY - bound.top - canvas.clientTop;
+        //add label
+        g.strokeStyle = 'blue'
+        g.lineWidth = 1
+        g.clearRect(30,25,90,15);
+        g.strokeRect(30, 25, 90, 15);
+        var txt = 'y value is ' + y0[Math.round((x-20)/xFactor)+1]
+        g.fillText(txt,35,35);
+        });
+    canvas.addEventListener('mousedown',event => {
+        let bound = canvas.getBoundingClientRect();
+        let x = event.clientX - bound.left - canvas.clientLeft;
+        let y = event.clientY - bound.top - canvas.clientTop;
+        let ySize = yS/5, yOff = yS*4/5
+        g.strokeStyle = 'blue'
+        g.lineWidth = 1
+        if (typeof xRLim == 'undefined' && y>yOff && y<yS) 
+            {xRL =  xSize-5; xRLim = xRL; xLL = 20; xLLim=20; console.log('xLim set')}
+        else if (y>yOff && y<yS && x<=xRLim+10 && x>=xRLim-10) {xRL = xRLim; upd = 'R'; console.log('xRLIm updated')}
+        else if (y>yOff && y<yS && x<=xLLim+10 && x>=xLLim-10) {xLL = xLLim; upd = 'L'; console.log('xLLIm updated')}
+        if (y>yOff && y<yS) g.strokeRect(xLL, yOff+1, xRL-22, yS-yOff-22);
+        });
+    canvas.addEventListener('mouseup',event => {
+        let bound = canvas.getBoundingClientRect();
+        let x = event.clientX - bound.left - canvas.clientLeft;
+        let y = event.clientY - bound.top - canvas.clientTop;
+        let ySize = yS/5, yOff = yS*4/5
+        g.strokeStyle = 'blue'
+        g.lineWidth = 1
+        if (y>yOff && y<yS && upd=='R') xRLim = x
+        else if (y>yOff && y<yS && upd=='L') xLLim = x
+        if (y>yOff && y<yS && upd != '') {
+            miniChart("canvas", y0, xSize, yS);
+            g.strokeRect(xLLim, yOff+1, xRLim-xLLim, yS-yOff-22);
+            y0 =  readData(xLLim,xRLim)
+            chart("canvas", y0, xSize, yS);
+            upd = ''
+        }
+        });
+    }
+
+</script>
+</head>
+<body onload="init()"></body>
+</html>
